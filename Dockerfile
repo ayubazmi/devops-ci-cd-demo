@@ -1,11 +1,10 @@
-FROM node:18
+FROM jenkins/jenkins:lts
 
-WORKDIR /app
+USER root
 
-COPY package*.json ./
-RUN npm install
+# Optional: Install Docker inside Jenkins container (if needed for building images)
+RUN apt-get update && \
+    apt-get install -y docker.io && \
+    apt-get clean
 
-COPY . .
-
-EXPOSE 3000
-CMD ["npm", "start"]
+USER jenkins
