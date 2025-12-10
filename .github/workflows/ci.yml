@@ -1,0 +1,59 @@
+name: Docker CI/CD
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted  # required for local docker deployment
+
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+
+    steps:
+
+    # Checkout Code
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # Build Frontend Image
+    - name: Build frontend image
+      run: |
+        docker build -t ayubazmi/frontend:${{ github.run_number }} ./frontend
+        docker tag ayubazmi/frontend:${{ github.run_number }} ayubazmi/frontend:latest
+
+    # Build Backend Image
+    - name: Build backend image
+      run: |
+        docker build -t ayubazmi/backend:${{ github.run_number }} ./backend
+        docker tag ayubazmi/backend:${{ github.run_number }} ayubazmi/backend:latest
+
+    # Docker Hub Login
+    - name: Login to Docker Hub
+      run: |
+        echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+
+    # Push Images
+    - name: Push images
+      run: |
+        docker push ayubazmi/frontend:${{ github.run_number }}
+        docker push ayubazmi/frontend:latest
+        docker push ayubazmi/backend:${{ github.run_number }}
+        docker push ayubazmi/backend:latest
+
+    # Deploy to Render
+    - name: Trigger Render Deploy
+      if: env.RENDER_DEPLOY_HOOK != ''
+      run: |
+        echo "Triggering Render deploy..."
+        curl -X POST "${RENDER_DEPLOY_HOOK}"
+
+    # Optional: Local Deployment (self-hosted)
+    - name: Deploy using Docker Compose (local)
+      run: |
+        docker compose down || true
+        docker compose pull
+        docker compose up -d
